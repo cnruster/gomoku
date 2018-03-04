@@ -4,10 +4,10 @@
 #include "resource.h"
 
 
-// 这是五子棋教学程序的第四步
-// 作者：程轶平, 北京交通大学电子信息工程学院 
-// ypcheng@bjtu.edu.cn     2017年4月
-// 本源代码采用GPL版权保护。GPL协议的详细说明：http://baike.baidu.com/item/GPL
+// This is the 4th step of my teaching program
+// Author: Yiping Cheng, Beijing Jiaotong University
+// ypcheng@bjtu.edu.cn    April 2017
+// This code is protected by the MIT License
   
 
 
@@ -46,19 +46,22 @@ const char szManCom[] = "Gomoku (human-computer)";
 const char szManMan[] = "Gomoku (human-human)";
 
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nShowCmd)
+void WinMainCRTStartup()
 {
+	STARTUPINFO StartupInfo;
     WNDCLASS wc;
     MSG msg;
 
-    HInstance = hInstance;
+    HInstance = GetModuleHandle(NULL);
+	StartupInfo.dwFlags = 0;
+	GetStartupInfo(&StartupInfo);
 
     wc.style            = CS_HREDRAW|CS_VREDRAW;
     wc.lpfnWndProc      = MainWndProc;
     wc.cbClsExtra       = 0;
     wc.cbWndExtra       = 0;
-    wc.hInstance        = hInstance;
-    wc.hIcon            = LoadIcon(hInstance, (LPCTSTR)ID_GOMOKU);
+    wc.hInstance        = HInstance;
+    wc.hIcon            = LoadIcon(HInstance, (LPCTSTR)ID_GOMOKU);
     wc.hCursor          = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground    = CreateSolidBrush(RGB(0,128,0));
     wc.lpszMenuName     = (LPCTSTR) ID_GOMOKU;
@@ -75,14 +78,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
         700,          // window height
         NULL,       // handle to parent or owner window
         NULL,       // menu handle or child identifier
-        hInstance,  // handle to application instance
+        HInstance,  // handle to application instance
         NULL);      // window-creation data
 
     if (!Hwnd)
-        return 0;
+        goto EXIT;
 
 
-    ShowWindow(Hwnd, nShowCmd);
+    ShowWindow(Hwnd, StartupInfo.dwFlags & STARTF_USESHOWWINDOW
+                                    ? StartupInfo.wShowWindow
+                                    : SW_SHOWDEFAULT);
     UpdateWindow(Hwnd);
 
     while (GetMessage(&msg, NULL, 0, 0))
@@ -93,7 +98,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
     
     DeleteObject(wc.hbrBackground);
 
-    return msg.wParam;
+EXIT:
+    ExitProcess(msg.wParam);
 }
 
 void NewGame();
@@ -564,4 +570,3 @@ void OnLButtonDown(LPARAM lParam)
         GmStat = GAMETIE;
     }
 }
-
