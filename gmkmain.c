@@ -8,13 +8,19 @@
 // Author: Yiping Cheng, Beijing Jiaotong University
 // ypcheng@bjtu.edu.cn    April 2017
 // This code is protected by the MIT License
-  
+
 
 
 LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-typedef enum {PLAYING, GAMEWON, GAMETIE} GAME_STATE;
-typedef enum {COM_MAN, MAN_COM, MAN_MAN} PLAYER_CFG;
+typedef enum
+{
+    PLAYING, GAMEWON, GAMETIE
+} GAME_STATE;
+typedef enum
+{
+    COM_MAN, MAN_COM, MAN_MAN
+} PLAYER_CFG;
 
 // global variables
 HINSTANCE HInstance;
@@ -23,7 +29,7 @@ HMENU Hmenu;
 HDC Hdc;
 HBITMAP HbmpBoard, HbmpStones, HbmpGridBoard;
 HDC HdcmemBoard, HdcmemStones, HdcmemGridBoard;
-LONG CxMain, CyMain;
+RECT ClientRect;
 BITMAP BmBoard, BmStones;
 HBRUSH HbrGrid, HbrHilite, HbrCohilite;
 LONG CBoard, SxBoard, SyBoard;
@@ -45,28 +51,24 @@ const char szComMan[] = "Gomoku (computer-human)";
 const char szManCom[] = "Gomoku (human-computer)";
 const char szManMan[] = "Gomoku (human-human)";
 
-
-void WinMainCRTStartup()
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nShowCmd)
 {
-	STARTUPINFO StartupInfo;
     WNDCLASS wc;
     MSG msg;
 
-    HInstance = GetModuleHandle(NULL);
-	StartupInfo.dwFlags = 0;
-	GetStartupInfo(&StartupInfo);
+    HInstance = hInstance;
 
-    wc.style            = CS_HREDRAW|CS_VREDRAW;
-    wc.lpfnWndProc      = MainWndProc;
-    wc.cbClsExtra       = 0;
-    wc.cbWndExtra       = 0;
-    wc.hInstance        = HInstance;
-    wc.hIcon            = LoadIcon(HInstance, (LPCTSTR)ID_GOMOKU);
-    wc.hCursor          = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground    = CreateSolidBrush(RGB(0,128,0));
-    wc.lpszMenuName     = (LPCTSTR) ID_GOMOKU;
-    wc.lpszClassName    = szGomoku;
-    
+    wc.style = CS_HREDRAW|CS_VREDRAW;
+    wc.lpfnWndProc = MainWndProc;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = HInstance;
+    wc.hIcon = LoadIcon(HInstance, (LPCTSTR) ID_GOMOKU);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = CreateSolidBrush(RGB(0, 128, 0));
+    wc.lpszMenuName = (LPCTSTR) ID_GOMOKU;
+    wc.lpszClassName = szGomoku;
+
     RegisterClass(&wc);
 
     Hwnd = CreateWindow(szGomoku,    // registered class name
@@ -82,36 +84,31 @@ void WinMainCRTStartup()
         NULL);      // window-creation data
 
     if (!Hwnd)
-        goto EXIT;
+        return 0;
 
-
-    ShowWindow(Hwnd, StartupInfo.dwFlags & STARTF_USESHOWWINDOW
-                                    ? StartupInfo.wShowWindow
-                                    : SW_SHOWDEFAULT);
+    ShowWindow(Hwnd, nShowCmd);
     UpdateWindow(Hwnd);
 
-    while (GetMessage(&msg, NULL, 0, 0))
-    {
+    while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
-    
+
     DeleteObject(wc.hbrBackground);
 
-EXIT:
-    ExitProcess(msg.wParam);
+    return msg.wParam;
 }
 
+
 void NewGame();
-void OnSize(LPARAM lParam);
+void OnSize();
 void OnPaint(HDC hdc);
 void OnCommand(WPARAM wParam);
 void OnLButtonDown(LPARAM lParam);
 
 LRESULT WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    switch (uMsg)
-    {
+    switch (uMsg) {
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
@@ -121,38 +118,44 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_SIZE:
-        OnSize(lParam);
+        ClientRect.right = (LONG) LOWORD(lParam);
+        ClientRect.bottom = (LONG) HIWORD(lParam);
+        OnSize();
+        
         break;
 
     case WM_COMMAND:
         OnCommand(wParam);
-    
+
     case WM_LBUTTONDOWN:
         OnLButtonDown(lParam);
         break;
-    
+
     case WM_CREATE:
     {
-        HbmpBoard = LoadBitmap(HInstance, (LPCTSTR)IDB_BITMAP1);
+        Hdc = GetDC(hWnd);
+        HdcmemGridBoard = CreateCompatibleDC(NULL);
+
+        HbmpBoard = LoadBitmap(HInstance, (LPCTSTR) IDB_BITMAP1);
         HdcmemBoard = CreateCompatibleDC(NULL);
         SelectObject(HdcmemBoard, HbmpBoard);
         GetObject(HbmpBoard, sizeof(BITMAP), &BmBoard);
-        
-        HbmpStones = LoadBitmap(HInstance, (LPCTSTR)IDB_BITMAP2);
+
+        HbrGrid = GetStockObject(BLACK_BRUSH);
+        HbrHilite = CreateSolidBrush(RGB(200, 36, 146));
+        HbrCohilite = CreateSolidBrush(RGB(55, 219, 109));
+
+        GetClientRect(hWnd, &ClientRect);
+        OnSize();
+
+        HbmpStones = LoadBitmap(HInstance, (LPCTSTR) IDB_BITMAP2);
         HdcmemStones = CreateCompatibleDC(NULL);
         SelectObject(HdcmemStones, HbmpStones);
         GetObject(HbmpStones, sizeof(BITMAP), &BmStones);
 
-        HbrGrid = GetStockObject(BLACK_BRUSH);
-        HbrHilite = CreateSolidBrush(RGB(200,36,146));
-        HbrCohilite = CreateSolidBrush(RGB(55,219,109));
-
         Hmenu = GetMenu(hWnd);
         PlCfg = MAN_MAN;
         NewGame();
-
-        Hdc = GetDC(hWnd);
-        HdcmemGridBoard = CreateCompatibleDC(NULL);
 
         break;
     }
@@ -183,9 +186,8 @@ void NewGame()
 {
     int i, j;
 
-    for (i=0; i<NUM_BOXES; i++)
-        for (j=0; j<NUM_BOXES; j++)
-        {
+    for (i = 0; i<NUM_BOXES; i++)
+        for (j = 0; j<NUM_BOXES; j++) {
             STATE[i][j] = 2;
         }
 
@@ -196,9 +198,9 @@ void NewGame()
 
 int FillRectLTWH(HDC hdc, LONG l, LONG t, LONG w, LONG h, HBRUSH hbr)
 {
-    RECT rect={l, t, l+w, t+h};
+    RECT rect = {l, t, l+w, t+h};
     return FillRect(hdc, &rect, hbr);
-}  
+}
 
 
 void ShowHilite(HDC hdc, int i, int j, HBRUSH hbr)
@@ -210,10 +212,9 @@ void ShowHilite(HDC hdc, int i, int j, HBRUSH hbr)
 
 void ShowPiece(HDC hdc, int i, int j, UINT state)
 {
-    if (state<2)
-    {
-        TransparentBlt(hdc, SxBox0+i*CBox, SyBox0+j*CBox, CBox, CBox, 
-            HdcmemStones, state*BmStones.bmHeight, 0, BmStones.bmHeight, BmStones.bmHeight, RGB(255,0,0));
+    if (state<2) {
+        TransparentBlt(hdc, SxBox0+i*CBox, SyBox0+j*CBox, CBox, CBox,
+            HdcmemStones, state*BmStones.bmHeight, 0, BmStones.bmHeight, BmStones.bmHeight, RGB(255, 0, 0));
     }
 }
 
@@ -221,7 +222,7 @@ void ShowPiece(HDC hdc, int i, int j, UINT state)
 #define MIN(x,y)	((x<y)?(x):(y))
 
 
-void OnSize(LPARAM lParam)
+void OnSize()
 {
     LONG cmain, s;
     HBITMAP oldHbmpGridBoard;
@@ -229,14 +230,11 @@ void OnSize(LPARAM lParam)
     LONG linethick, start, tythick;
     int i, j;
 
-    CxMain = (LONG) LOWORD(lParam);
-    CyMain = (LONG) HIWORD(lParam);
-    
-    cmain = MIN(CxMain, CyMain);
+    cmain = MIN(ClientRect.right, ClientRect.bottom);
 
     CBoard = (15*cmain)/16;
-    SxBoard = (CxMain-CBoard)/2;
-    SyBoard = (CyMain-CBoard)/2;
+    SxBoard = (ClientRect.right-CBoard)/2;
+    SyBoard = (ClientRect.bottom-CBoard)/2;
 
 
     CBox = CBoard/(NUM_BOXES+1);
@@ -247,19 +245,16 @@ void OnSize(LPARAM lParam)
     SxBox0 = SxBoard+RSxBox0;
     SyBox0 = SyBoard+RSyBox0;
 
-    
+
     HbmpGridBoard = CreateCompatibleBitmap(Hdc, CBoard, CBoard);
     oldHbmpGridBoard = SelectObject(HdcmemGridBoard, HbmpGridBoard);
     DeleteObject(oldHbmpGridBoard);
-    
-    if (CBoard > BmBoard.bmWidth)
-    {
-        StretchBlt(HdcmemGridBoard, 0, 0, CBoard, CBoard, 
+
+    if (CBoard > BmBoard.bmWidth) {
+        StretchBlt(HdcmemGridBoard, 0, 0, CBoard, CBoard,
             HdcmemBoard, 0, 0, BmBoard.bmWidth, BmBoard.bmHeight, SRCCOPY);
-    }
-    else
-    {
-        BitBlt(HdcmemGridBoard, 0, 0, CBoard, CBoard, 
+    } else {
+        BitBlt(HdcmemGridBoard, 0, 0, CBoard, CBoard,
             HdcmemBoard, 0, 0, SRCCOPY);
     }
 
@@ -271,9 +266,8 @@ void OnSize(LPARAM lParam)
     rect.left = RSxBox0+start;
     rect.right = rect.left+linethick;
 
-    for (i=NUM_BOXES; i>0; i--)
-    {
-        FillRect(HdcmemGridBoard, &rect, HbrGrid); 
+    for (i = NUM_BOXES; i>0; i--) {
+        FillRect(HdcmemGridBoard, &rect, HbrGrid);
         rect.left += CBox;
         rect.right += CBox;
     }
@@ -283,9 +277,8 @@ void OnSize(LPARAM lParam)
     rect.top = RSyBox0+start;
     rect.bottom = rect.top+linethick;
 
-    for (i=NUM_BOXES; i>0; i--)
-    {
-        FillRect(HdcmemGridBoard, &rect, HbrGrid); 
+    for (i = NUM_BOXES; i>0; i--) {
+        FillRect(HdcmemGridBoard, &rect, HbrGrid);
         rect.top += CBox;
         rect.bottom += CBox;
     }
@@ -294,9 +287,8 @@ void OnSize(LPARAM lParam)
     start = (CBox-tythick)/2;
 
 #if NUM_BOXES>=9
-    for (i=3; i<NUM_BOXES; i+=(NUM_BOXES-7)/2)
-        for (j=3; j<NUM_BOXES; j+=(NUM_BOXES-7)/2)
-        {
+    for (i = 3; i<NUM_BOXES; i += (NUM_BOXES-7)/2)
+        for (j = 3; j<NUM_BOXES; j += (NUM_BOXES-7)/2) {
             FillRectLTWH(HdcmemGridBoard, RSxBox0+start+i*CBox, RSyBox0+start+j*CBox,
                 tythick, tythick, HbrGrid);
         }
@@ -308,8 +300,7 @@ void ShowRenju(HDC hdc, int i, int j)
 {
     int k, ii, jj;
 
-    for (k=0; k<5; k++)
-    {
+    for (k = 0; k<5; k++) {
         ii = RenjuI[k];
         jj = RenjuJ[k];
 
@@ -323,17 +314,15 @@ void OnPaint(HDC hdc)
 {
     int i, j;
 
-    BitBlt(hdc, SxBoard, SyBoard, CBoard, CBoard, 
+    BitBlt(hdc, SxBoard, SyBoard, CBoard, CBoard,
         HdcmemGridBoard, 0, 0, SRCCOPY);
 
-    for (i=0; i<NUM_BOXES; i++)
-        for (j=0; j<NUM_BOXES; j++)
-        {
+    for (i = 0; i<NUM_BOXES; i++)
+        for (j = 0; j<NUM_BOXES; j++) {
             ShowPiece(hdc, i, j, STATE[i][j]);
         }
 
-    if (CMov)
-    {
+    if (CMov) {
         i = HistI[CMov-1];
         j = HistJ[CMov-1];
         ShowHilite(hdc, i, j, HbrHilite);
@@ -345,11 +334,9 @@ void OnPaint(HDC hdc)
 
 void OnCommand(WPARAM wParam)
 {
-    switch (LOWORD(wParam))
-    {
+    switch (LOWORD(wParam)) {
     case IDM_COM_MAN:
-        if (PlCfg != COM_MAN)
-        {
+        if (PlCfg != COM_MAN) {
             PlCfg = COM_MAN;
             CheckMenuItem(Hmenu, IDM_COM_MAN, MF_CHECKED);
             CheckMenuItem(Hmenu, IDM_MAN_COM, MF_UNCHECKED);
@@ -357,10 +344,9 @@ void OnCommand(WPARAM wParam)
             SetWindowText(Hwnd, szComMan);
         }
         break;
-    
+
     case IDM_MAN_COM:
-        if (PlCfg != MAN_COM)
-        {
+        if (PlCfg != MAN_COM) {
             PlCfg = MAN_COM;
             CheckMenuItem(Hmenu, IDM_COM_MAN, MF_UNCHECKED);
             CheckMenuItem(Hmenu, IDM_MAN_COM, MF_CHECKED);
@@ -368,10 +354,9 @@ void OnCommand(WPARAM wParam)
             SetWindowText(Hwnd, szManCom);
         }
         break;
-    
+
     case IDM_MAN_MAN:
-        if (PlCfg != MAN_MAN)
-        {
+        if (PlCfg != MAN_MAN) {
             PlCfg = MAN_MAN;
             CheckMenuItem(Hmenu, IDM_COM_MAN, MF_UNCHECKED);
             CheckMenuItem(Hmenu, IDM_MAN_COM, MF_UNCHECKED);
@@ -393,18 +378,15 @@ void OnCommand(WPARAM wParam)
 
 int CheckWin(int i, int j)
 {
-    UINT state=STATE[i][j];
+    UINT state = STATE[i][j];
     int ia, ib, ja, jb, a, b, ii, jj, renju;
-	
+
     renju = 0;
-    ia = (i<4)? i: 4;
-    ib = (i>NUM_BOXES-5)? NUM_BOXES-1-i: 4;
-    for (ii=i-ia; ii<=i+ib; ii++)
-    {
-        if (STATE[ii][j]==state)
-        {
-            if (++renju==5)
-            {
+    ia = (i<4) ? i : 4;
+    ib = (i>NUM_BOXES-5) ? NUM_BOXES-1-i : 4;
+    for (ii = i-ia; ii<=i+ib; ii++) {
+        if (STATE[ii][j]==state) {
+            if (++renju==5) {
                 RenjuI[0] = ii-4;
                 RenjuI[1] = ii-3;
                 RenjuI[2] = ii-2;
@@ -419,20 +401,16 @@ int CheckWin(int i, int j)
 
                 return 1;
             }
-        }
-	    else
-	        renju=0;
+        } else
+            renju = 0;
     }
 
     renju = 0;
-    ja = (j<4)? j: 4;
-    jb = (j>NUM_BOXES-5)? NUM_BOXES-1-j: 4;
-    for (jj=j-ja; jj<=j+jb; jj++)
-    {
-        if (STATE[i][jj]==state)
-        {
-            if (++renju==5)
-            {
+    ja = (j<4) ? j : 4;
+    jb = (j>NUM_BOXES-5) ? NUM_BOXES-1-j : 4;
+    for (jj = j-ja; jj<=j+jb; jj++) {
+        if (STATE[i][jj]==state) {
+            if (++renju==5) {
                 RenjuI[0] = i;
                 RenjuI[1] = i;
                 RenjuI[2] = i;
@@ -444,12 +422,11 @@ int CheckWin(int i, int j)
                 RenjuJ[2] = jj-2;
                 RenjuJ[3] = jj-1;
                 RenjuJ[4] = jj;
-     
+
                 return 1;
             }
-        }
-        else
-	    renju=0;
+        } else
+            renju = 0;
     }
 
 
@@ -457,12 +434,9 @@ int CheckWin(int i, int j)
     a = MIN(ia, ja);
     b = MIN(ib, jb);
 
-    for (ii=i-a,jj=j-a; ii<=i+b; ii++,jj++)
-    {
-        if (STATE[ii][jj]==state)
-        {
-            if (++renju==5)
-            {
+    for (ii = i-a, jj = j-a; ii<=i+b; ii++, jj++) {
+        if (STATE[ii][jj]==state) {
+            if (++renju==5) {
                 RenjuI[0] = ii-4;
                 RenjuI[1] = ii-3;
                 RenjuI[2] = ii-2;
@@ -475,11 +449,10 @@ int CheckWin(int i, int j)
                 RenjuJ[3] = jj-1;
                 RenjuJ[4] = jj;
 
-		        return 1;
+                return 1;
             }
-        }
-	    else
-	        renju=0;
+        } else
+            renju = 0;
     }
 
 
@@ -487,12 +460,9 @@ int CheckWin(int i, int j)
     a = MIN(ia, jb);
     b = MIN(ib, ja);
 
-    for (ii=i-a,jj=j+a; ii<=i+b; ii++,jj--)
-    {
-        if (STATE[ii][jj]==state)
-        {
-            if (++renju==5)
-            {
+    for (ii = i-a, jj = j+a; ii<=i+b; ii++, jj--) {
+        if (STATE[ii][jj]==state) {
+            if (++renju==5) {
                 RenjuI[0] = ii-4;
                 RenjuI[1] = ii-3;
                 RenjuI[2] = ii-2;
@@ -503,13 +473,12 @@ int CheckWin(int i, int j)
                 RenjuJ[1] = jj+3;
                 RenjuJ[2] = jj+2;
                 RenjuJ[3] = jj+1;
-                RenjuJ[4] = jj;		
-                
+                RenjuJ[4] = jj;
+
                 return 1;
             }
-        }
-        else
-            renju=0;
+        } else
+            renju = 0;
     }
 
     return 0;
@@ -518,8 +487,8 @@ int CheckWin(int i, int j)
 
 void OnLButtonDown(LPARAM lParam)
 {
-    static char MsgWon[2][16]={"Black has won!", "White has won!"};
-    static char MsgTie[]="Game tied.";
+    static char MsgWon[2][16] = {"Black has won!", "White has won!"};
+    static char MsgTie[] = "Game tied.";
     int togo, i, j, ii, jj;
 
     if (GmStat != PLAYING)
@@ -528,24 +497,22 @@ void OnLButtonDown(LPARAM lParam)
     if (CBox==0)
         return;
 
-	i = (GET_X_LPARAM(lParam)-SxBox0)/CBox;
-	if (i<0 || i>=NUM_BOXES)
-		return;
+    i = (GET_X_LPARAM(lParam)-SxBox0)/CBox;
+    if (i<0 || i>=NUM_BOXES)
+        return;
 
-	j = (GET_Y_LPARAM(lParam)-SyBox0)/CBox;
-	if (j<0 || j>=NUM_BOXES)
-		return;
+    j = (GET_Y_LPARAM(lParam)-SyBox0)/CBox;
+    if (j<0 || j>=NUM_BOXES)
+        return;
 
-	if (STATE[i][j] <= 1)
-	{
-	    MessageBeep(MB_ICONEXCLAMATION);
-	    return;
-	}
+    if (STATE[i][j] <= 1) {
+        MessageBeep(MB_ICONEXCLAMATION);
+        return;
+    }
 
-    if (CMov)
-    {
-        ii =  HistI[CMov-1];
-        jj =  HistJ[CMov-1];
+    if (CMov) {
+        ii = HistI[CMov-1];
+        jj = HistJ[CMov-1];
         ShowPiece(Hdc, ii, jj, STATE[ii][jj]);
     }
 
@@ -558,15 +525,13 @@ void OnLButtonDown(LPARAM lParam)
     ShowPiece(Hdc, i, j, togo);
     ShowHilite(Hdc, i, j, HbrHilite);
 
-    if (CheckWin(i, j))
-    {
+    if (CheckWin(i, j)) {
         ShowRenju(Hdc, i, j);
-    	MessageBox(Hwnd, MsgWon[togo], szGomoku, 0);
+        MessageBox(Hwnd, MsgWon[togo], szGomoku, 0);
         GmStat = GAMEWON;
-    }
-    else if (CMov==NUM_BOXES*NUM_BOXES)
-    {
-  	MessageBox(Hwnd, MsgTie, szGomoku, 0);
+    } else if (CMov==NUM_BOXES*NUM_BOXES) {
+        MessageBox(Hwnd, MsgTie, szGomoku, 0);
         GmStat = GAMETIE;
     }
 }
+
